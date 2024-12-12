@@ -10,7 +10,7 @@
 #define OLED_SDA 21
 #define OLED_SCL 22
 
-#define MOISTURE_PIN 15 
+#define MOISTURE_PIN 33 
 #define RED_PIN 5
 #define GREEN_PIN 18
 #define BLUE_PIN 19
