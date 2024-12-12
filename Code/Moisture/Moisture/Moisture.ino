@@ -5,7 +5,7 @@
 #include <Adafruit_SSD1306.h>
 
 #define SCREEN_WIDTH 128 
-#define SCREEN_HEIGHT 32 
+#define SCREEN_HEIGHT 64 
 
 #define OLED_SDA 21
 #define OLED_SCL 22
@@ -22,7 +22,8 @@ const char* ssid = "GuestWLANPortal";
 const char* mqtt_server = "10.10.2.127";
 const char* topic1 = "zuerich/pflanzen/Temperatur/in";
 const char* topic2 = "zuerich/pflanzen/moisture/in";
-const char* topic3 = "zuerich/pflanzen/Temperatur/out"; 
+const char* topic3 = "zuerich/pflanzen/Temperatur/out";
+const char* topic4 = "zuerich/pflanzen/moisture/out"; 
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -31,7 +32,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 void setup() {
   Serial.begin(115200);
-  
+
   Wire.begin(OLED_SDA, OLED_SCL);
   if (!display.begin(SSD1306_PAGEADDR, OLED_SDA, OLED_SCL)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -39,38 +40,27 @@ void setup() {
   }
   display.clearDisplay();
   display.setTextSize(1);
-  setup_aht();
   display.setTextColor(SSD1306_WHITE);
 
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
-  pinMode(MOISTURE_PIN, INPUT);
-  pinMode(RED_PIN, OUTPUT);
-  pinMode(GREEN_PIN, OUTPUT);
-  pinMode(BLUE_PIN, OUTPUT);
-
-  Serial.println("Initializing sensors...");
-
   if (!aht.begin()) {
     Serial.println("Failed to find AHT10/AHT20 sensor!");
     display.println("AHT sensor failed!");
     display.display();
+    for (;;);
   } else {
     Serial.println("AHT10/AHT20 sensor initialized.");
     display.println("AHT10/AHT20 initialized.");
     display.display();
   }
-}
 
-void setup_aht() {
-  Serial.print("Searching AHT10 / AHT20...");
-  while(!aht.begin()) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("done!");
+  pinMode(MOISTURE_PIN, INPUT);
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
+  pinMode(BLUE_PIN, OUTPUT);
 }
 
 void setup_wifi() {
@@ -85,22 +75,29 @@ void setup_wifi() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  if (strcmp(topic, topic2) == 0) {
-    char message[length + 1];
-    memcpy(message, payload, length);
-    message[length] = '\0';
-    Serial.print("Received Message: ");
-    Serial.println(message);
+  char message[length + 1];
+  memcpy(message, payload, length);
+  message[length] = '\0';
+  Serial.print("Received message on topic ");
+  Serial.print(topic);
+  Serial.print(": ");
+  Serial.println(message);
+
+  if (strcmp(topic, topic4) == 0) {
+    Serial.println("Received command on topic4 (moisture/out).");
+  
   }
 }
 
 void reconnect() {
-  Serial.print("Attempting MQTT connection...");
   while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
     if (client.connect(device_id)) {
       Serial.println("Connected to MQTT broker!");
       client.subscribe(topic1);
       client.subscribe(topic2);
+      client.subscribe(topic3);
+      client.subscribe(topic4); 
     } else {
       delay(500);
       Serial.print(".");
@@ -110,12 +107,12 @@ void reconnect() {
 
 void controlRGB(bool isDry) {
   if (isDry) {
-    digitalWrite(RED_PIN, HIGH);   
+    digitalWrite(RED_PIN, HIGH);
     digitalWrite(GREEN_PIN, LOW);
     digitalWrite(BLUE_PIN, LOW);
   } else {
     digitalWrite(RED_PIN, LOW);
-    digitalWrite(GREEN_PIN, HIGH); 
+    digitalWrite(GREEN_PIN, HIGH);
     digitalWrite(BLUE_PIN, LOW);
   }
 }
@@ -127,47 +124,39 @@ void loop() {
   client.loop();
 
   int moisture_reading = analogRead(MOISTURE_PIN);
-  Serial.print("Soil Moisture: ");
-  String moisture_status;
   bool isDry = moisture_reading > THRESHOLD;
+  controlRGB(isDry);
 
-  if (isDry) {
-    moisture_status = "DRY";
-    Serial.print("DRY (");
-  } else {
-    moisture_status = "WET";
-    Serial.print("WET (");
-  }
-  Serial.print(moisture_reading);
-  Serial.println(")");
-
-  controlRGB(isDry); 
+  sensors_event_t humidity, temp;
+  aht.getEvent(&humidity, &temp);
 
   display.clearDisplay();
   display.setCursor(0, 0);
   display.println("Soil Sensor Status");
   display.print("Moisture: ");
-  display.print(moisture_status);
-  display.println();
+  display.println(isDry ? "DRY" : "WET");
   display.print("Moisture Val: ");
   display.println(moisture_reading);
-
-  if (isDry) {
-    display.println("WATER NEEDED!");
-  }
-
+  display.println("----------");
+  display.print(temp.temperature);
+  display.println(" degC");
+  display.print(humidity.relative_humidity);
+  display.println("% rH");
   display.display();
 
-  sensors_event_t humidity, temp;
-  aht.getEvent(&humidity, &temp);
 
-  char temp_str[8];
-  dtostrf(temp.temperature, 1, 2, temp_str);  
-  client.publish(topic1, temp_str); 
+  char tempBuffer[10];
+  sprintf(tempBuffer, "%.2f", temp.temperature);
+  client.publish(topic1, tempBuffer);
 
-  char moisture_str[8];
-  itoa(moisture_reading, moisture_str, 10); 
-  client.publish(topic2, moisture_str); 
+  char moisture_str[10];
+  itoa(moisture_reading, moisture_str, 10);
+  client.publish(topic2, moisture_str);
+  client.publish(topic4, moisture_str); 
 
-  delay(10000);  
+  char humidityBuffer[10];
+  sprintf(humidityBuffer, "%.2f", humidity.relative_humidity);
+  client.publish(topic3, humidityBuffer);
+
+  delay(10000);
 }
