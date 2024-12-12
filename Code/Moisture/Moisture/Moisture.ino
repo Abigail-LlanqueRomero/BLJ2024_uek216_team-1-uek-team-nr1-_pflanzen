@@ -1,18 +1,12 @@
 #include <WiFi.h>
+#include <Wire.h>
 #include <PubSubClient.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-
-#define SCREEN_WIDTH 128 
-#define SCREEN_HEIGHT 64 
-
-#define OLED_SDA 21
-#define OLED_SCL 22
+#include <Adafruit_SSD1306.h> 
 
 #define MOISTURE_PIN 34 
 #define RED_PIN 5      
 #define GREEN_PIN 18   
-#define BLUE_PIN 19    
+#define YELLOW_PIN 19    
 
 const char* device_id = "abigail";
 const char* ssid = "GuestWLANPortal";
@@ -22,28 +16,37 @@ const char* topic2 = "zuerich/pflanzen/moisture/out";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_SDA 21
+#define OLED_SCL 22
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 void setup() {
   Serial.begin(115200);
-
-  Wire.begin(OLED_SDA, OLED_SCL);
-  if (!display.begin(SSD1306_PAGEADDR, OLED_SDA, OLED_SCL)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for (;;);
-  }
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-
+  
   setup_wifi();
+
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("SSD1306 allocation failed");
+    while (1) delay(1); 
+  }
 
   pinMode(MOISTURE_PIN, INPUT);
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
-  pinMode(BLUE_PIN, OUTPUT);
+  pinMode(YELLOW_PIN, OUTPUT);
+
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+
+  Serial.println("Setup complete");
 }
 
 void setup_wifi() {
@@ -67,7 +70,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println(message);
 
   if (strcmp(topic, topic2) == 0) {
-    Serial.println("Received command on topic4 (moisture/out).");
+    Serial.println("Received command on topic2 (moisture/out).");
   }
 }
 
@@ -76,9 +79,7 @@ void reconnect() {
     Serial.print("Attempting MQTT connection...");
     if (client.connect(device_id)) {
       Serial.println("Connected to MQTT broker!");
-
       client.subscribe(topic1);
-    
       client.subscribe(topic2); 
     } else {
       delay(500);
@@ -89,20 +90,17 @@ void reconnect() {
 
 void controlRGB(int moisturePercentage) {
   if (moisturePercentage >= 66) {
-   
-    digitalWrite(RED_PIN, HIGH);
-    digitalWrite(GREEN_PIN, HIGH);
-    digitalWrite(BLUE_PIN, LOW);
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(YELLOW_PIN, HIGH);  
   } else if (moisturePercentage >= 45) {
-    
     digitalWrite(RED_PIN, LOW);
     digitalWrite(GREEN_PIN, HIGH);
-    digitalWrite(BLUE_PIN, LOW);
+    digitalWrite(YELLOW_PIN, LOW);  
   } else {
-
     digitalWrite(RED_PIN, HIGH);
     digitalWrite(GREEN_PIN, LOW);
-    digitalWrite(BLUE_PIN, LOW);
+    digitalWrite(YELLOW_PIN, LOW);  
   }
 }
 
@@ -113,21 +111,27 @@ void loop() {
   client.loop();
 
   int moisture_reading = analogRead(MOISTURE_PIN);
-
   int moisture_percentage = map(moisture_reading, 0, 4095, 100, 0);
 
   controlRGB(moisture_percentage);
 
   display.clearDisplay();
   display.setCursor(0, 0);
-  display.println("Soil Sensor Status");
+  
   display.print("Moisture: ");
   display.print(moisture_percentage);
-  display.println("%");
-  display.println("----------");
+  display.println(" %");
+
+  if (moisture_percentage >= 66) {
+    display.println("Too Much Water");
+  } else if (moisture_percentage >= 45) {
+    display.println("Perfect Water Level");
+  } else {
+    display.println("Add Water");
+  }
+
   display.display();
 
- 
   char moisture_str[10];
   itoa(moisture_percentage, moisture_str, 10);
   client.publish(topic1, moisture_str);
