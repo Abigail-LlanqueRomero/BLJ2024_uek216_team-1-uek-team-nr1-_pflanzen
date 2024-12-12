@@ -1,28 +1,37 @@
 #include <WiFi.h>
 #include <Wire.h>
 #include <PubSubClient.h>
-#include <Adafruit_SSD1306.h> 
+#include <Adafruit_SSD1306.h>
 
-#define MOISTURE_PIN 34 
-#define RED_PIN 5      
-#define GREEN_PIN 18   
-#define YELLOW_PIN 19    
+#define MOISTURE_PIN 34
+#define RED_PIN 5
+#define GREEN_PIN 18
+#define YELLOW_PIN 19
+#define BUZZER_PIN 26
 
 const char* device_id = "abigail";
 const char* ssid = "GuestWLANPortal";
 const char* mqtt_server = "10.10.2.127";
 const char* topic1 = "zuerich/pflanzen/moisture/in";
-const char* topic2 = "zuerich/pflanzen/moisture/out"; 
+const char* topic2 = "zuerich/pflanzen/moisture/out";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_SDA 21
 #define OLED_SCL 22
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+int happyMelody[] = { 523, 523, 587, 587, 523, 523, 523, 0, 523, 523, 587, 587, 523, 523, 523 };
+int happyDurations[] = { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 };
+
+int calmMelody[] = { 440, 440, 440, 440, 0, 440, 440, 440, 440 };
+int calmDurations[] = { 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+
+int sadMelody[] = { 220, 220, 220, 220, 220 };
+int sadDurations[] = { 8, 8, 8, 8, 8 };
 
 void setup() {
   Serial.begin(115200);
@@ -34,13 +43,14 @@ void setup() {
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println("SSD1306 allocation failed");
-    while (1) delay(1); 
+    while (1) delay(1);
   }
 
   pinMode(MOISTURE_PIN, INPUT);
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(YELLOW_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
 
   display.clearDisplay();
   display.setTextSize(2);
@@ -70,7 +80,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println(message);
 
   if (strcmp(topic, topic2) == 0) {
-    Serial.println("Received command on topic2 (moisture/out).");
+    Serial.println("Received command on topic2 (moisture/out).\n");
   }
 }
 
@@ -88,19 +98,32 @@ void reconnect() {
   }
 }
 
+void playMelody(int* melody, int* durations, int size) {
+  for (int i = 0; i < size; i++) {
+    int noteDuration = 1000 / durations[i];
+    tone(BUZZER_PIN, melody[i], noteDuration);
+    int pauseBetweenNotes = noteDuration * 1.3;
+    delay(pauseBetweenNotes);
+    noTone(BUZZER_PIN);
+  }
+}
+
 void controlRGB(int moisturePercentage) {
   if (moisturePercentage >= 66) {
     digitalWrite(RED_PIN, LOW);
     digitalWrite(GREEN_PIN, LOW);
     digitalWrite(YELLOW_PIN, HIGH);  
+    playMelody(calmMelody, calmDurations, sizeof(calmDurations) / sizeof(int)); 
   } else if (moisturePercentage >= 45) {
     digitalWrite(RED_PIN, LOW);
     digitalWrite(GREEN_PIN, HIGH);
     digitalWrite(YELLOW_PIN, LOW);  
+    playMelody(happyMelody, happyDurations, sizeof(happyDurations) / sizeof(int)); 
   } else {
     digitalWrite(RED_PIN, HIGH);
     digitalWrite(GREEN_PIN, LOW);
     digitalWrite(YELLOW_PIN, LOW);  
+    playMelody(sadMelody, sadDurations, sizeof(sadDurations) / sizeof(int)); 
   }
 }
 
