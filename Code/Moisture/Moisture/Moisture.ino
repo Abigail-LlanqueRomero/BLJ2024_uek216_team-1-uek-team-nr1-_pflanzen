@@ -1,5 +1,4 @@
 #include <WiFi.h>
-#include <Adafruit_AHTX0.h>
 #include <PubSubClient.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -27,7 +26,6 @@ const char* topic4 = "zuerich/pflanzen/moisture/out";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-Adafruit_AHTX0 aht;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 void setup() {
@@ -45,17 +43,6 @@ void setup() {
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
-
-  if (!aht.begin()) {
-    Serial.println("Failed to find AHT10/AHT20 sensor!");
-    display.println("AHT sensor failed!");
-    display.display();
-    for (;;);
-  } else {
-    Serial.println("AHT10/AHT20 sensor initialized.");
-    display.println("AHT10/AHT20 initialized.");
-    display.display();
-  }
 
   pinMode(MOISTURE_PIN, INPUT);
   pinMode(RED_PIN, OUTPUT);
@@ -127,8 +114,6 @@ void loop() {
   bool isDry = moisture_reading > THRESHOLD;
   controlRGB(isDry);
 
-  sensors_event_t humidity, temp;
-  aht.getEvent(&humidity, &temp);
 
   display.clearDisplay();
   display.setCursor(0, 0);
@@ -138,25 +123,13 @@ void loop() {
   display.print("Moisture Val: ");
   display.println(moisture_reading);
   display.println("----------");
-  display.print(temp.temperature);
-  display.println(" degC");
-  display.print(humidity.relative_humidity);
-  display.println("% rH");
   display.display();
 
-
-  char tempBuffer[10];
-  sprintf(tempBuffer, "%.2f", temp.temperature);
-  client.publish(topic1, tempBuffer);
 
   char moisture_str[10];
   itoa(moisture_reading, moisture_str, 10);
   client.publish(topic2, moisture_str);
   client.publish(topic4, moisture_str); 
-
-  char humidityBuffer[10];
-  sprintf(humidityBuffer, "%.2f", humidity.relative_humidity);
-  client.publish(topic3, humidityBuffer);
 
   delay(10000);
 }
