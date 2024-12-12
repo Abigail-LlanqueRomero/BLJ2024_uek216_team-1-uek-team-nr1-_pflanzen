@@ -17,8 +17,8 @@
 const char* device_id = "abigail";
 const char* ssid = "GuestWLANPortal";
 const char* mqtt_server = "10.10.2.127";
-const char* topic2 = "zuerich/pflanzen/moisture/in";
-const char* topic4 = "zuerich/pflanzen/moisture/out"; 
+const char* topic1 = "zuerich/pflanzen/moisture/in";
+const char* topic2 = "zuerich/pflanzen/moisture/out"; 
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -66,7 +66,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print(": ");
   Serial.println(message);
 
-  if (strcmp(topic, topic4) == 0) {
+  if (strcmp(topic, topic2) == 0) {
     Serial.println("Received command on topic4 (moisture/out).");
   }
 }
@@ -77,9 +77,9 @@ void reconnect() {
     if (client.connect(device_id)) {
       Serial.println("Connected to MQTT broker!");
 
-      client.subscribe(topic2);
+      client.subscribe(topic1);
     
-      client.subscribe(topic4); 
+      client.subscribe(topic2); 
     } else {
       delay(500);
       Serial.print(".");
@@ -130,8 +130,8 @@ void loop() {
  
   char moisture_str[10];
   itoa(moisture_percentage, moisture_str, 10);
-  client.publish(topic2, moisture_str);
-  client.publish(topic4, moisture_str); 
+  client.publish(topic1, moisture_str);
+  client.publish(topic2, moisture_str); 
 
   delay(1000);
 }
