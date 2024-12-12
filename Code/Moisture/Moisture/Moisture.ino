@@ -9,19 +9,15 @@
 #define OLED_SDA 21
 #define OLED_SCL 22
 
-#define MOISTURE_PIN 33 
-#define RED_PIN 5
-#define GREEN_PIN 18
-#define BLUE_PIN 19
-
-#define THRESHOLD 530
+#define MOISTURE_PIN 34 
+#define RED_PIN 5      
+#define GREEN_PIN 18   
+#define BLUE_PIN 19    
 
 const char* device_id = "abigail";
 const char* ssid = "GuestWLANPortal";
 const char* mqtt_server = "10.10.2.127";
-const char* topic1 = "zuerich/pflanzen/Temperatur/in";
 const char* topic2 = "zuerich/pflanzen/moisture/in";
-const char* topic3 = "zuerich/pflanzen/Temperatur/out";
 const char* topic4 = "zuerich/pflanzen/moisture/out"; 
 
 WiFiClient espClient;
@@ -72,7 +68,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   if (strcmp(topic, topic4) == 0) {
     Serial.println("Received command on topic4 (moisture/out).");
-  
   }
 }
 
@@ -81,9 +76,9 @@ void reconnect() {
     Serial.print("Attempting MQTT connection...");
     if (client.connect(device_id)) {
       Serial.println("Connected to MQTT broker!");
-      client.subscribe(topic1);
+
       client.subscribe(topic2);
-      client.subscribe(topic3);
+    
       client.subscribe(topic4); 
     } else {
       delay(500);
@@ -92,14 +87,21 @@ void reconnect() {
   }
 }
 
-void controlRGB(bool isDry) {
-  if (isDry) {
+void controlRGB(int moisturePercentage) {
+  if (moisturePercentage >= 66) {
+   
     digitalWrite(RED_PIN, HIGH);
-    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(GREEN_PIN, HIGH);
     digitalWrite(BLUE_PIN, LOW);
-  } else {
+  } else if (moisturePercentage >= 45) {
+    
     digitalWrite(RED_PIN, LOW);
     digitalWrite(GREEN_PIN, HIGH);
+    digitalWrite(BLUE_PIN, LOW);
+  } else {
+
+    digitalWrite(RED_PIN, HIGH);
+    digitalWrite(GREEN_PIN, LOW);
     digitalWrite(BLUE_PIN, LOW);
   }
 }
@@ -111,25 +113,25 @@ void loop() {
   client.loop();
 
   int moisture_reading = analogRead(MOISTURE_PIN);
-  bool isDry = moisture_reading > THRESHOLD;
-  controlRGB(isDry);
 
+  int moisture_percentage = map(moisture_reading, 0, 4095, 100, 0);
+
+  controlRGB(moisture_percentage);
 
   display.clearDisplay();
   display.setCursor(0, 0);
   display.println("Soil Sensor Status");
   display.print("Moisture: ");
-  display.println(isDry ? "DRY" : "WET");
-  display.print("Moisture Val: ");
-  display.println(moisture_reading);
+  display.print(moisture_percentage);
+  display.println("%");
   display.println("----------");
   display.display();
 
-
+ 
   char moisture_str[10];
-  itoa(moisture_reading, moisture_str, 10);
+  itoa(moisture_percentage, moisture_str, 10);
   client.publish(topic2, moisture_str);
   client.publish(topic4, moisture_str); 
 
-  delay(10000);
+  delay(1000);
 }
