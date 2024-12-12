@@ -4,13 +4,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-
-#include <WiFi.h>
-#include <Adafruit_AHTX0.h>
-#include <PubSubClient.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-
 #define SCREEN_WIDTH 128 
 #define SCREEN_HEIGHT 32 
 
@@ -23,18 +16,6 @@
 #define BLUE_PIN 19
 
 #define THRESHOLD 530
-
-
-
-
-#define SCREEN_WIDTH 128 
-#define SCREEN_HEIGHT 32 
-
-#define OLED_SDA 21
-#define OLED_SCL 22
-
-#define LIGHT_PIN 34
-#define MOISTURE_PIN 15 
 
 const char* device_id = "abigail";
 const char* ssid = "GuestWLANPortal";
@@ -65,8 +46,10 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
-  pinMode(LIGHT_PIN, INPUT);
   pinMode(MOISTURE_PIN, INPUT);
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
+  pinMode(BLUE_PIN, OUTPUT);
 
   Serial.println("Initializing sensors...");
 
@@ -82,12 +65,12 @@ void setup() {
 }
 
 void setup_aht() {
- Serial.print("Searching AHT10 / AHT20...");
- while(!aht.begin()) {
- delay(500);
- Serial.print(".");
- }
- Serial.println("done!");
+  Serial.print("Searching AHT10 / AHT20...");
+  while(!aht.begin()) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("done!");
 }
 
 void setup_wifi() {
@@ -125,20 +108,30 @@ void reconnect() {
   }
 }
 
+void controlRGB(bool isDry) {
+  if (isDry) {
+    digitalWrite(RED_PIN, HIGH);   
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(BLUE_PIN, LOW);
+  } else {
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(GREEN_PIN, HIGH); 
+    digitalWrite(BLUE_PIN, LOW);
+  }
+}
+
 void loop() {
   if (!client.connected()) {
     reconnect();
   }
   client.loop();
 
-  float light_reading = analogRead(LIGHT_PIN);
-  Serial.print("Light Reading: ");
-  Serial.println(light_reading);
-
   int moisture_reading = analogRead(MOISTURE_PIN);
   Serial.print("Soil Moisture: ");
   String moisture_status;
-  if (moisture_reading > THRESHOLD) {
+  bool isDry = moisture_reading > THRESHOLD;
+
+  if (isDry) {
     moisture_status = "DRY";
     Serial.print("DRY (");
   } else {
@@ -148,6 +141,8 @@ void loop() {
   Serial.print(moisture_reading);
   Serial.println(")");
 
+  controlRGB(isDry); 
+
   display.clearDisplay();
   display.setCursor(0, 0);
   display.println("Soil Sensor Status");
@@ -156,10 +151,8 @@ void loop() {
   display.println();
   display.print("Moisture Val: ");
   display.println(moisture_reading);
-  display.print("Light: ");
-  display.println(light_reading);
 
-  if (moisture_reading > THRESHOLD) {
+  if (isDry) {
     display.println("WATER NEEDED!");
   }
 
