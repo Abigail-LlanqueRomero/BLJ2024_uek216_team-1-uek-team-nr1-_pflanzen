@@ -24,14 +24,14 @@ PubSubClient client(espClient);
 #define OLED_SCL 22
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-int happyMelody[] = { 523, 523, 587, 587, 523, 523, 523, 0, 523, 523, 587, 587, 523, 523, 523 };
-int happyDurations[] = { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4 };
+int happyMelody[] = {523, 523, 587, 587, 523, 523, 523, 0, 523, 523, 587, 587, 523, 523, 523};
+int happyDurations[] = {4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4};
 
-int calmMelody[] = { 440, 440, 440, 440, 0, 440, 440, 440, 440 };
-int calmDurations[] = { 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+int calmMelody[] = {440, 440, 440, 440, 0, 440, 440, 440, 440};
+int calmDurations[] = {8, 8, 8, 8, 8, 8, 8, 8, 8};
 
-int sadMelody[] = { 220, 220, 220, 220, 220 };
-int sadDurations[] = { 8, 8, 8, 8, 8 };
+int sadMelody[] = {220, 220, 220, 220, 220};
+int sadDurations[] = {8, 8, 8, 8, 8};
 
 void setup() {
   Serial.begin(115200);
@@ -152,7 +152,6 @@ void loop() {
   } else {
     display.println("Add Water");
   }
-
   display.display();
 
   char moisture_str[10];
